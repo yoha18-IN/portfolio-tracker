@@ -1,14 +1,16 @@
 import { getCurrentUser } from '@/lib/auth'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
+import { headers } from 'next/headers'
 
 export default async function LeaderboardPage() {
   const user = await getCurrentUser()
 
-  // Fetch leaderboard data - use vercel URL or localhost
-  const baseUrl = process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+  // Fetch leaderboard data - construct URL from headers
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+  const baseUrl = `${protocol}://${host}`
   
   const response = await fetch(
     `${baseUrl}/api/leaderboard`,
