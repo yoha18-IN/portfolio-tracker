@@ -150,7 +150,7 @@ export async function DELETE(
           },
         },
       },
-    }) as { portfolios: { userId: string }[]; holdings: { id: string }[] }
+    }) as { portfolios: { id: string; userId: string; [key: string]: any }[]; holdings: { id: string; [key: string]: any }[] }
 
     const portfolio = data.portfolios[0]
 
