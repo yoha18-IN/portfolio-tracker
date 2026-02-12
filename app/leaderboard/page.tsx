@@ -89,7 +89,7 @@ export default async function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {leaderboard.map((entry, index) => {
+                  {leaderboard.map((entry: any, index: number) => {
                     const isCurrentUser = user && entry.ownerId === user.id
                     const rankColor =
                       index === 0
