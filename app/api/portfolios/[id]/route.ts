@@ -83,7 +83,7 @@ export async function PATCH(
           },
         },
       },
-    }) as { portfolios: { userId: string }[] }
+    }) as { portfolios: { id: string; userId: string; [key: string]: any }[] }
 
     const existingPortfolio = existingData.portfolios[0]
 
