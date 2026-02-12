@@ -3,14 +3,5 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "NEXT_PUBLIC_INSTANTDB_APP_ID": "@next_public_instantdb_app_id",
-    "INSTANT_APP_ADMIN_TOKEN": "@instant_app_admin_token",
-    "FINNHUB_API_KEY": "@finnhub_api_key",
-    "STOCK_API_KEY": "@stock_api_key",
-    "RESEND_API_KEY": "@resend_api_key",
-    "EXCHANGE_RATE_API_KEY": "@exchange_rate_api_key",
-    "VERIFICATION_TOKEN_SECRET": "@verification_token_secret"
-  }
+  "regions": ["iad1"]
 }
