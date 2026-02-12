@@ -5,9 +5,13 @@ import Link from 'next/link'
 export default async function LeaderboardPage() {
   const user = await getCurrentUser()
 
-  // Fetch leaderboard data
+  // Fetch leaderboard data - use vercel URL or localhost
+  const baseUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+  
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/leaderboard`,
+    `${baseUrl}/api/leaderboard`,
     {
       cache: 'no-store',
     }
