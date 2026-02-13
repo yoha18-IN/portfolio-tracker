@@ -64,6 +64,8 @@ export default function PortfolioView({
   const [currency, setCurrency] = useState<Currency>('USD')
   const [exchangeRate, setExchangeRate] = useState(1)
   const [exchangeRateUpdated, setExchangeRateUpdated] = useState<Date | null>(null)
+  const [dailyStartPrices, setDailyStartPrices] = useState<Record<string, number>>({})
+  const [showAddMenu, setShowAddMenu] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -243,6 +245,36 @@ export default function PortfolioView({
     initCurrency()
   }, [])
 
+  // Load daily start prices from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    try {
+      const stored = localStorage.getItem(`dailyPrices_${portfolio.id}`)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const today = new Date().toDateString()
+        
+        // Check if it's from today, otherwise reset
+        if (parsed.date === today) {
+          setDailyStartPrices(parsed.prices)
+        } else {
+          // New day, clear old prices
+          localStorage.removeItem(`dailyPrices_${portfolio.id}`)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading daily prices:', error)
+    }
+  }, [portfolio.id])
+
+  // Close add menu when forms are shown
+  useEffect(() => {
+    if (showAddForm || showBulkAdd) {
+      setShowAddMenu(false)
+    }
+  }, [showAddForm, showBulkAdd])
+
   // Handle currency change
   const handleCurrencyChange = (newCurrency: Currency, newRate: number) => {
     setCurrency(newCurrency)
@@ -288,6 +320,40 @@ export default function PortfolioView({
         
         setPrices(data.prices)
         setLastUpdated(new Date())
+
+        // Store daily start prices (first fetch of the day)
+        if (typeof window !== 'undefined') {
+          try {
+            const stored = localStorage.getItem(`dailyPrices_${portfolio.id}`)
+            const today = new Date().toDateString()
+            
+            if (!stored) {
+              // First fetch ever - save these as daily start prices
+              const dailyData = {
+                date: today,
+                prices: data.prices
+              }
+              localStorage.setItem(`dailyPrices_${portfolio.id}`, JSON.stringify(dailyData))
+              setDailyStartPrices(data.prices)
+            } else {
+              const parsed = JSON.parse(stored)
+              if (parsed.date !== today) {
+                // New day - reset with current prices
+                const dailyData = {
+                  date: today,
+                  prices: data.prices
+                }
+                localStorage.setItem(`dailyPrices_${portfolio.id}`, JSON.stringify(dailyData))
+                setDailyStartPrices(data.prices)
+              } else if (Object.keys(dailyStartPrices).length === 0) {
+                // Load existing daily start prices
+                setDailyStartPrices(parsed.prices)
+              }
+            }
+          } catch (error) {
+            console.error('Error managing daily prices:', error)
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch prices:', err)
@@ -315,6 +381,19 @@ export default function PortfolioView({
 
   const totalReturn = totalValue - totalCost
   const returnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
+
+  // Calculate total daily gain
+  let totalDailyGain = 0
+  let dailyStartValue = 0
+  for (const holding of holdings) {
+    const currentPrice = prices[holding.symbol]
+    const dailyStartPrice = dailyStartPrices[holding.symbol]
+    if (currentPrice && dailyStartPrice) {
+      totalDailyGain += (currentPrice - dailyStartPrice) * holding.shares
+      dailyStartValue += dailyStartPrice * holding.shares
+    }
+  }
+  const totalDailyGainPercent = dailyStartValue > 0 ? (totalDailyGain / dailyStartValue) * 100 : 0
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -373,26 +452,51 @@ export default function PortfolioView({
               >
                 💵 Add Cash
               </button>
-              <button
-                onClick={() => {
-                  setShowBulkAdd(!showBulkAdd)
-                  setShowAddForm(false)
-                  setEditingId(null)
-                }}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition"
-              >
-                + Add Multiple
-              </button>
-              <button
-                onClick={() => {
-                  setShowAddForm(!showAddForm)
-                  setShowBulkAdd(false)
-                  setEditingId(null)
-                }}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
-              >
-                + Add Single
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowAddMenu(!showAddMenu)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-2"
+                >
+                  + Add Holdings
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showAddMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowAddMenu(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20">
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setShowAddForm(true)
+                            setShowBulkAdd(false)
+                            setEditingId(null)
+                            setShowAddMenu(false)
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          📝 Add Single Holding
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowBulkAdd(true)
+                            setShowAddForm(false)
+                            setEditingId(null)
+                            setShowAddMenu(false)
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          📊 Add Multiple Holdings
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -449,7 +553,7 @@ export default function PortfolioView({
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <p className="text-sm text-gray-600">Total Holdings</p>
               <p className="text-2xl font-bold text-gray-900">{holdings.length}</p>
@@ -467,6 +571,30 @@ export default function PortfolioView({
               </p>
               {!hasPrices && (
                 <p className="text-xs text-gray-500 mt-1">(Using cost basis)</p>
+              )}
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600">Daily Gain</p>
+              {dailyStartValue > 0 ? (
+                <>
+                  <p
+                    className={`text-2xl font-bold ${
+                      totalDailyGain >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {totalDailyGain >= 0 ? '+' : ''}{formatCurrency(Math.abs(totalDailyGain), currency, exchangeRate).replace(/^\$|^₪/, totalDailyGain >= 0 ? (currency === 'ILS' ? '₪' : '$') : (currency === 'ILS' ? '-₪' : '-$'))}
+                  </p>
+                  <p
+                    className={`text-sm font-medium ${
+                      totalDailyGainPercent >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {totalDailyGainPercent >= 0 ? '+' : ''}
+                    {totalDailyGainPercent.toFixed(2)}%
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400 mt-2">Waiting for data...</p>
               )}
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -630,6 +758,9 @@ export default function PortfolioView({
                     Current Price
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Daily Gain
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total Value
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -660,6 +791,15 @@ export default function PortfolioView({
                   const returnValue = totalValue - totalCost
                   const returnPct =
                     totalCost > 0 ? (returnValue / totalCost) * 100 : 0
+
+                  // Calculate daily gain
+                  const dailyStartPrice = dailyStartPrices[holding.symbol]
+                  const dailyChange = currentPrice && dailyStartPrice 
+                    ? (currentPrice - dailyStartPrice) * holding.shares
+                    : 0
+                  const dailyChangePct = dailyStartPrice 
+                    ? ((currentPrice || dailyStartPrice) - dailyStartPrice) / dailyStartPrice * 100
+                    : 0
 
                   return (
                     <tr key={holding.id} className={isCash ? 'bg-emerald-50' : ''}>
@@ -698,6 +838,31 @@ export default function PortfolioView({
                           </div>
                         ) : (
                           <span className="text-gray-400">--</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isCash || !dailyStartPrice ? (
+                          <div className="text-gray-400 text-sm">
+                            --
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              className={`font-medium text-sm ${
+                                dailyChange >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}
+                            >
+                              {dailyChange >= 0 ? '+' : ''}{formatCurrency(Math.abs(dailyChange), currency, exchangeRate).replace(/^\$|^₪/, dailyChange >= 0 ? (currency === 'ILS' ? '₪' : '$') : (currency === 'ILS' ? '-₪' : '-$'))}
+                            </div>
+                            <div
+                              className={`text-xs ${
+                                dailyChangePct >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}
+                            >
+                              {dailyChangePct >= 0 ? '+' : ''}
+                              {dailyChangePct.toFixed(2)}%
+                            </div>
+                          </>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900">
